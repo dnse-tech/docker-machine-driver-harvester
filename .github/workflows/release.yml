@@ -1,6 +1,14 @@
 name: CI Workflow
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (e.g., v0.7.0)'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -9,13 +17,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Build
         run: |
           make
 
       - name: Upload artifacts
-        if: startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/master')
+        if: startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/master') || inputs.tag
         uses: actions/upload-artifact@v4
         with:
           name: artifact
@@ -25,11 +35,15 @@ jobs:
         id: info
         run: |
           echo "artifacts_dir=${PWD}/dist/artifacts" >> $GITHUB_OUTPUT
+          echo "tag=${{ inputs.tag || github.ref_name }}" >> $GITHUB_OUTPUT
 
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --notes "Release ${{ github.ref_name }}"
-          gh release upload ${{ github.ref_name }} ${{ steps.info.outputs.artifacts_dir }}/*
+          TAG="${{ steps.info.outputs.tag }}"
+          # Delete existing release if rebuilding historical tag
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          gh release create "$TAG" --title "$TAG" --notes "Release $TAG"
+          gh release upload "$TAG" ${{ steps.info.outputs.artifacts_dir }}/*
