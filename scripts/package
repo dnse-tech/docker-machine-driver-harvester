@@ -7,7 +7,7 @@ cd $(dirname $0)/..
 
 mkdir -p dist/artifacts
 
-for arch in amd64 arm64
+for arch in amd64 arm64 s390x
 do
   cp  bin/docker-machine-driver-harvester-${arch} bin/docker-machine-driver-harvester
   tar -zcvf dist/artifacts/docker-machine-driver-harvester-${arch}.tar.gz -C bin docker-machine-driver-harvester

@@ -9,3 +9,4 @@ mkdir -p bin
 [ "$(uname)" != "Darwin" ] && LINKFLAGS="-extldflags -static -s"
 GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.VERSION=$VERSION $LINKFLAGS" -o bin/docker-machine-driver-harvester-amd64
 GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-X main.VERSION=$VERSION $LINKFLAGS" -o bin/docker-machine-driver-harvester-arm64
+GOARCH=s390x CGO_ENABLED=0 go build -ldflags "-X main.VERSION=$VERSION $LINKFLAGS" -o bin/docker-machine-driver-harvester-s390x

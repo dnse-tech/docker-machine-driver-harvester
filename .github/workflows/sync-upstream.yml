@@ -1,0 +1,57 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "0 2 * * *"  # Daily at 2 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  UPSTREAM_REPO: harvester/docker-machine-driver-harvester
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new upstream releases
+        id: check
+        run: |
+          LATEST=$(gh release view -R ${{ env.UPSTREAM_REPO }} --json tagName -q .tagName)
+          echo "upstream_tag=$LATEST" >> $GITHUB_OUTPUT
+          echo "Latest upstream: $LATEST"
+
+          if gh release view "$LATEST" &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync upstream code
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git || true
+          git fetch upstream --tags
+          TAG="${{ steps.check.outputs.upstream_tag }}"
+          git checkout -b sync-$TAG upstream/$TAG || git checkout tags/$TAG -b sync-$TAG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create matching release
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          TAG="${{ steps.check.outputs.upstream_tag }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "Synced from ${{ env.UPSTREAM_REPO }} $TAG
+
+          Upstream: https://github.com/${{ env.UPSTREAM_REPO }}/releases/tag/$TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
